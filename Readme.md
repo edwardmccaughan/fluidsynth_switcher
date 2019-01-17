@@ -6,6 +6,8 @@ you will need to install
 
 `sudo apt-get install libportmidi-dev`
 
+This also assumes you have fluidsynth and the FluidR3_GM soundfont installed.
+
 
 for good fluidsynth sound, give it permission to set high priority in `/etc/security/limits.conf` 
 
@@ -15,3 +17,7 @@ for good fluidsynth sound, give it permission to set high priority in `/etc/secu
 ```
 
 and add yourself to the audio group `sudo usermod -a -G  audio $USER`
+
+
+TODO:
+  * maybe support volume control

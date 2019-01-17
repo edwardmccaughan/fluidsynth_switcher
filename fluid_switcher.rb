@@ -18,6 +18,9 @@ class FluidSwitcher
   FLUIDSYNTH_COMMAND = 'fluidsynth -s -o "shell.port=9988" -a alsa -g 3 -p fluidsynth /usr/share/sounds/sf2/FluidR3_GM.sf2'
   ACONNECT_COMMAND = "aconnect '#{SOUND_KEYBOARD_NAME}':0 'fluidsynth':0"
 
+
+  attr_accessor :fluidsynth, :control_keyboard_input
+
   def initialize
     @control_keyboard_input = get_control_keyboard
 
@@ -26,13 +29,13 @@ class FluidSwitcher
 
   def listen_loop
     PTY.spawn(FLUIDSYNTH_COMMAND) do |reader, writer|
+
+      @fluidsynth = writer 
+      sleep 1 # fluidsynth needs some time to start up
       puts 'launched fluidsynth'
 
-      $fluidsynth = writer 
-      sleep 1
-      puts ACONNECT_COMMAND
-      system(ACONNECT_COMMAND)
-      
+      system(ACONNECT_COMMAND)     
+      puts 'connected control keyboard'
 
       loop do
         check_for_midi_inputs
@@ -45,16 +48,16 @@ class FluidSwitcher
 
   def check_for_midi_inputs
     events = @control_keyboard_input.read(16)
-      if events # maybe don't need this line
-        events.each do |event|
-          key = event[:message][1]
-          is_down = event[:message][2] != 0
+    return if events.nil?
 
-          puts "key: #{key}, #{is_down}"
-       
-          change_instrument(key) if is_down
-        end
-      end
+    events.each do |event|
+      key = event[:message][1]
+      is_down = event[:message][2] != 0
+
+      puts "key: #{key}, #{is_down}"
+   
+      change_instrument(key) if is_down
+    end
   end
 
 
@@ -62,14 +65,14 @@ class FluidSwitcher
     Portmidi.start
     control_keyboard = Portmidi.input_devices.find{ |input| input.name.include?(CONTROL_KEYBOARD_NAME) }
     raise 'could not find control keyboard, is it plugged in?' if control_keyboard.nil?
-    # binding.pry
+
     Portmidi::Input.new(control_keyboard.device_id)
   end
 
   def change_instrument(midi_key_pressed)
     instrument = MIDI_KEY_INSTRUMENTS[midi_key_pressed]
-    puts "changing to instrument"
-    $fluidsynth.puts("select 0 1 0 #{instrument}")
+    puts "changing to instrument #{instrument}"
+    @fluidsynth.puts("select 0 1 0 #{instrument}")
   end
 end
 
