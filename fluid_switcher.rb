@@ -15,7 +15,7 @@ class FluidSwitcher
   CONTROL_KEYBOARD_NAME = 'Keystation Mini 32'
   SOUND_KEYBOARD_NAME = 'Alesis Recital'
 
-  FLUIDSYNTH_COMMAND = 'fluidsynth -s -o "shell.port=9988" -a alsa -g 3 -p fluidsynth /usr/share/sounds/sf2/FluidR3_GM.sf2'
+  FLUIDSYNTH_COMMAND = 'fluidsynth -s -o "shell.port=9988" -a alsa -g 1 -p fluidsynth /usr/share/sounds/sf2/FluidR3_GM.sf2'
   ACONNECT_COMMAND = "aconnect '#{SOUND_KEYBOARD_NAME}':0 'fluidsynth':0"
 
 
