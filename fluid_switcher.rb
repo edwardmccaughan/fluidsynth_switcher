@@ -22,8 +22,6 @@ class FluidSwitcher
   attr_accessor :fluidsynth, :control_keyboard_input
 
   def initialize
-    # @control_keyboard_input = get_control_keyboard
-
     Portmidi.start
 
     PTY.spawn(FLUIDSYNTH_COMMAND) do |reader, writer|
@@ -47,6 +45,31 @@ class FluidSwitcher
     end
   end
 
+  def connect_to_control_keyboard
+    return if keyboard_connected?(CONTROL_KEYBOARD_NAME)
+
+    if(keyboard_plugged_in?(CONTROL_KEYBOARD_NAME))
+      @control_keyboard_input.close if @control_keyboard_input
+      control_keyboard = Portmidi.input_devices.find{ |input| input.name.include?(CONTROL_KEYBOARD_NAME) }
+      @control_keyboard_input = Portmidi::Input.new(control_keyboard.device_id)
+      puts 'connected to control keyboard'
+    else
+      puts 'could not find control keyboard, is it plugged in?'
+    end
+    # binding.pry
+  end
+
+  def connect_to_sound_keyboard
+    return if keyboard_connected?(SOUND_KEYBOARD_NAME)
+
+    if(keyboard_plugged_in?(SOUND_KEYBOARD_NAME))
+      system(ACONNECT_COMMAND)
+      puts 'connected sound keyboard'
+    else
+      puts 'sound keyboard does not seem to be connected'
+    end
+  end
+
   def check_for_midi_inputs
     events = @control_keyboard_input.read(16)
     return if events.nil?
@@ -62,61 +85,20 @@ class FluidSwitcher
     end
   end
 
-
-  def connect_to_control_keyboard
-    return if control_keyboard_connected?
-
-    if(control_keyboard_plugged_in?)
-      @control_keyboard_input.close if @control_keyboard_input
-      control_keyboard = Portmidi.input_devices.find{ |input| input.name.include?(CONTROL_KEYBOARD_NAME) }
-      @control_keyboard_input = Portmidi::Input.new(control_keyboard.device_id)
-      puts 'connected to control keyboard'
-    else
-      puts 'could not find control keyboard, is it plugged in?'
-    end
-    # binding.pry
-  end
-
   def change_instrument(midi_key_pressed)
     instrument = MIDI_KEY_INSTRUMENTS[midi_key_pressed]
     puts "changing to instrument #{instrument}"
     @fluidsynth.puts("select 0 1 0 #{instrument}")
   end
 
-  def check_for_control_keyboard_disconnect
-    @control_keyboard = Portmidi.input_devices.find{ |input| input.name.include?(CONTROL_KEYBOARD_NAME) }
+  def keyboard_plugged_in?(name)
+    `aconnect -l | grep '#{name}'`.include?('client')
   end
 
-  def control_keyboard_plugged_in?
-    `aconnect -l | grep 'Keystation'`.include?('client')
-  end
-
-  def control_keyboard_connected?
-    `aconnect -l | grep -A 1 'Keystation'`.include?('Connecting')
-  end
-
-  def sound_keyboard_plugged_in?
-    `aconnect -l | grep 'Alesis'`.include?('client')
-  end
-
-  def sound_keyboard_connected?
-    `aconnect -l | grep -A 1 'Alesis'`.include?('Connecting')
-  end
-
-
-  def connect_to_sound_keyboard
-    return if sound_keyboard_connected?
-
-    if(sound_keyboard_plugged_in?)
-      system(ACONNECT_COMMAND)
-      puts 'connected sound keyboard'
-    else
-      puts 'sound keyboard does not seem to be connected'
-    end
+  def keyboard_connected?(name)
+    `aconnect -l | grep -A 1 '#{name}'`.include?('Connecting')
   end
 end
-
-
 
 FluidSwitcher.new
 
