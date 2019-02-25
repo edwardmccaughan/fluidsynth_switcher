@@ -24,25 +24,23 @@ class FluidSwitcher
   def initialize
     @control_keyboard_input = get_control_keyboard
 
-    listen_loop
-  end
-
-  def listen_loop
     PTY.spawn(FLUIDSYNTH_COMMAND) do |reader, writer|
-
       @fluidsynth = writer 
       sleep 1 # fluidsynth needs some time to start up
       puts 'launched fluidsynth'
 
-      system(ACONNECT_COMMAND)     
-      puts 'connected control keyboard'
+      listen_loop
+    end
+  end
 
-      loop do
-        check_for_midi_inputs
-        # portmidi's read blocks the cpu and we don't need fast response times for changing instruments
-        # so just sleep rather than waste cpu cycles that the gui will need
-        sleep 0.5 
-      end
+  def listen_loop  
+    loop do
+      connect_to_sound_keyboard
+
+      check_for_midi_inputs
+      # portmidi's read blocks the cpu and we don't need fast response times for changing instruments
+      # so just sleep rather than waste cpu cycles that the gui will need
+      sleep 0.5 
     end
   end
 
@@ -73,6 +71,26 @@ class FluidSwitcher
     instrument = MIDI_KEY_INSTRUMENTS[midi_key_pressed]
     puts "changing to instrument #{instrument}"
     @fluidsynth.puts("select 0 1 0 #{instrument}")
+  end
+
+  def sound_keyboard_plugged_in?
+    `aconnect -l | grep 'Alesis'`.include?('client')
+  end
+
+  def sound_keyboard_connected?
+    `aconnect -l | grep -A 1 'Alesis'`.include?('Connecting')
+  end
+
+
+  def connect_to_sound_keyboard
+    return if sound_keyboard_connected?
+
+    if(sound_keyboard_plugged_in?)
+      system(ACONNECT_COMMAND)
+      puts 'connected sound keyboard'
+    else
+      puts 'sound keyboard does not seem to be connected'
+    end
   end
 end
 
