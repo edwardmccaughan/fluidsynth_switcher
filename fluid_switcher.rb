@@ -22,7 +22,9 @@ class FluidSwitcher
   attr_accessor :fluidsynth, :control_keyboard_input
 
   def initialize
-    @control_keyboard_input = get_control_keyboard
+    # @control_keyboard_input = get_control_keyboard
+
+    Portmidi.start
 
     PTY.spawn(FLUIDSYNTH_COMMAND) do |reader, writer|
       @fluidsynth = writer 
@@ -36,6 +38,7 @@ class FluidSwitcher
   def listen_loop  
     loop do
       connect_to_sound_keyboard
+      connect_to_control_keyboard
 
       check_for_midi_inputs
       # portmidi's read blocks the cpu and we don't need fast response times for changing instruments
@@ -49,6 +52,7 @@ class FluidSwitcher
     return if events.nil?
 
     events.each do |event|
+      puts event.inspect
       key = event[:message][1]
       is_down = event[:message][2] != 0
 
@@ -59,18 +63,36 @@ class FluidSwitcher
   end
 
 
-  def get_control_keyboard
-    Portmidi.start
-    control_keyboard = Portmidi.input_devices.find{ |input| input.name.include?(CONTROL_KEYBOARD_NAME) }
-    raise 'could not find control keyboard, is it plugged in?' if control_keyboard.nil?
+  def connect_to_control_keyboard
+    return if control_keyboard_connected?
 
-    Portmidi::Input.new(control_keyboard.device_id)
+    if(control_keyboard_plugged_in?)
+      @control_keyboard_input.close if @control_keyboard_input
+      control_keyboard = Portmidi.input_devices.find{ |input| input.name.include?(CONTROL_KEYBOARD_NAME) }
+      @control_keyboard_input = Portmidi::Input.new(control_keyboard.device_id)
+      puts 'connected to control keyboard'
+    else
+      puts 'could not find control keyboard, is it plugged in?'
+    end
+    # binding.pry
   end
 
   def change_instrument(midi_key_pressed)
     instrument = MIDI_KEY_INSTRUMENTS[midi_key_pressed]
     puts "changing to instrument #{instrument}"
     @fluidsynth.puts("select 0 1 0 #{instrument}")
+  end
+
+  def check_for_control_keyboard_disconnect
+    @control_keyboard = Portmidi.input_devices.find{ |input| input.name.include?(CONTROL_KEYBOARD_NAME) }
+  end
+
+  def control_keyboard_plugged_in?
+    `aconnect -l | grep 'Keystation'`.include?('client')
+  end
+
+  def control_keyboard_connected?
+    `aconnect -l | grep -A 1 'Keystation'`.include?('Connecting')
   end
 
   def sound_keyboard_plugged_in?
