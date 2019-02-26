@@ -51,11 +51,17 @@ class FluidSwitcher
     return if keyboard_connected?(CONTROL_KEYBOARD_NAME)
 
     if(keyboard_plugged_in?(CONTROL_KEYBOARD_NAME))
-      sleep 1 # sometimes it isn't recognised right away?
+      # sleep 1 # sometimes it isn't recognised right away?
       @control_keyboard_input.close if @control_keyboard_input
       control_keyboard = Portmidi.input_devices.find{ |input| input.name.include?(CONTROL_KEYBOARD_NAME) }
-      @control_keyboard_input = Portmidi::Input.new(control_keyboard.device_id)
-      puts 'connected to control keyboard'
+
+      if(@control_keyboard_input.nil?)
+        puts "aconnect finds control keyboard, but portmidi does not?"
+        return
+      else
+        @control_keyboard_input = Portmidi::Input.new(control_keyboard.device_id)
+        puts 'connected to control keyboard'
+      end
     else
       puts 'could not find control keyboard, is it plugged in?'
     end
