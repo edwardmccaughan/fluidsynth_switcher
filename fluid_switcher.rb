@@ -15,9 +15,9 @@ class FluidSwitcher
   CONTROL_KEYBOARD_NAME = 'Keystation Mini 32'
   SOUND_KEYBOARD_NAME = 'Alesis Recital'
 
-  FLUIDSYNTH_COMMAND = 'fluidsynth -s -o "shell.port=9988" -a alsa -g 1 -p fluidsynth /usr/share/sounds/sf2/FluidR3_GM.sf2'
+  SOUNDFONT_PATH='/usr/share/sounds/sf2/FluidR3_GM.sf2'
+  FLUIDSYNTH_COMMAND = "fluidsynth -s -o 'shell.port=9988' -a alsa -g 1 -p fluidsynth '#{SOUNDFONT_PATH}'"
   ACONNECT_COMMAND = "aconnect '#{SOUND_KEYBOARD_NAME}':0 'fluidsynth':0"
-
 
   attr_accessor :fluidsynth, :control_keyboard_input
 
@@ -49,6 +49,7 @@ class FluidSwitcher
     return if keyboard_connected?(CONTROL_KEYBOARD_NAME)
 
     if(keyboard_plugged_in?(CONTROL_KEYBOARD_NAME))
+      sleep 1 # sometimes it isn't recognised right away?
       @control_keyboard_input.close if @control_keyboard_input
       control_keyboard = Portmidi.input_devices.find{ |input| input.name.include?(CONTROL_KEYBOARD_NAME) }
       @control_keyboard_input = Portmidi::Input.new(control_keyboard.device_id)
@@ -71,6 +72,7 @@ class FluidSwitcher
   end
 
   def check_for_midi_inputs
+    return unless keyboard_connected?(CONTROL_KEYBOARD_NAME)
     events = @control_keyboard_input.read(16)
     return if events.nil?
 
