@@ -24,6 +24,8 @@ class FluidSwitcher
   def initialize
     Portmidi.start
 
+
+    puts "starting fluidsynth with: #{FLUIDSYNTH_COMMAND}"
     PTY.spawn(FLUIDSYNTH_COMMAND) do |reader, writer|
       @fluidsynth = writer 
       sleep 1 # fluidsynth needs some time to start up
