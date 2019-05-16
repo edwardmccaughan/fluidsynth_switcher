@@ -1,6 +1,7 @@
 require 'pty'
 require 'portmidi'
 require 'pry'
+require 'pry-byebug'
 
 class FluidSwitcher
   MIDI_KEY_INSTRUMENTS = {
@@ -48,7 +49,7 @@ class FluidSwitcher
   end
 
   def connect_to_control_keyboard
-    return if keyboard_connected?(CONTROL_KEYBOARD_NAME)
+    return if keyboard_connected_to_fluid_switcher?(CONTROL_KEYBOARD_NAME)
 
     if(keyboard_plugged_in?(CONTROL_KEYBOARD_NAME))
       # sleep 1 # sometimes it isn't recognised right away?
@@ -56,7 +57,11 @@ class FluidSwitcher
       control_keyboard = Portmidi.input_devices.find{ |input| input.name.include?(CONTROL_KEYBOARD_NAME) }
 
       if(@control_keyboard_input.nil?)
-        puts "aconnect finds control keyboard, but portmidi does not?"
+        puts "aconnect finds #{CONTROL_KEYBOARD_NAME}, but portmidi does not?"
+        puts Portmidi.input_devices.inspect
+        puts "but lets try and connect"
+        # binding.pry
+        @control_keyboard_input = Portmidi::Input.new(control_keyboard.device_id)
         return
       else
         @control_keyboard_input = Portmidi::Input.new(control_keyboard.device_id)
@@ -69,7 +74,7 @@ class FluidSwitcher
   end
 
   def connect_to_sound_keyboard
-    return if keyboard_connected?(SOUND_KEYBOARD_NAME)
+    return if keyboard_connected_to_fluidsynth?(SOUND_KEYBOARD_NAME)
 
     if(keyboard_plugged_in?(SOUND_KEYBOARD_NAME))
       system(ACONNECT_COMMAND)
@@ -80,7 +85,7 @@ class FluidSwitcher
   end
 
   def check_for_midi_inputs
-    return unless keyboard_connected?(CONTROL_KEYBOARD_NAME)
+    return unless keyboard_connected_to_fluid_switcher?(CONTROL_KEYBOARD_NAME)
     events = @control_keyboard_input.read(16)
     return if events.nil?
 
@@ -103,11 +108,45 @@ class FluidSwitcher
 
   def keyboard_plugged_in?(name)
     `aconnect -l | grep '#{name}'`.include?('client')
+    # aconnect_status(name).include?(fluidsynth_port)
   end
 
-  def keyboard_connected?(name)
-    `aconnect -l | grep -A 1 '#{name}'`.include?('Connecting')
+  def keyboard_connected_to_fluidsynth?(name)
+    # `aconnect -l | grep -A 1 '#{name}'`.include?('Connecting')
+    # binding.pry
+    return false if aconnect_status(name).nil? || fluidsynth_port.nil?
+    aconnect_status(name).include?(fluidsynth_port)
   end
+
+
+  def keyboard_connected_to_fluid_switcher?(name)
+    # binding.pry
+    return false if aconnect_status(name).nil? || fluid_switcher_port.nil?
+    aconnect_status(name).include?(fluid_switcher_port)
+  end
+
+  # def keyboard_connected(keyboard_name, output_name)
+  #   return false if aconnect_status(keyboard_name).nil? || fluid_switcher_port.nil?
+  #   aconnect_status(name).include?(fluid_switcher_port)
+  # end
+
+  # def output_port(name)
+  #   aconnect_status(name)&.split(':')&.first
+  # end
+
+
+  def fluidsynth_port
+    aconnect_status('fluidsynth')&.split(':')&.first
+  end
+
+  def fluid_switcher_port
+    aconnect_status('Client-')&.split(':')&.first
+  end
+
+  def aconnect_status(name)
+    `aconnect -l`.split('client ').find{|line| line.include?(name)}
+  end
+
 end
 
 FluidSwitcher.new
