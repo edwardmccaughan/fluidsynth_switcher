@@ -15,6 +15,8 @@ class FluidSwitcher
 
   CONTROL_KEYBOARD_NAME = 'Keystation Mini 32'
   SOUND_KEYBOARD_NAME = 'Alesis Recital'
+  FLUIDSYNTH_NAME = 'fluidsynth'
+  PORTMIDI_NAME = 'Client-' # there's no way to actually set a name, so it just gets something like 'Client-131'
 
   SOUNDFONT_PATH='/usr/share/sounds/sf2/FluidR3_GM.sf2'
   FLUIDSYNTH_COMMAND = "fluidsynth -s -o 'shell.port=9988' -a alsa -g 1 -p fluidsynth '#{SOUNDFONT_PATH}'"
@@ -24,8 +26,6 @@ class FluidSwitcher
 
   def initialize
     Portmidi.start
-
-
     puts "starting fluidsynth with: #{FLUIDSYNTH_COMMAND}"
     PTY.spawn(FLUIDSYNTH_COMMAND) do |reader, writer|
       @fluidsynth = writer 
@@ -49,32 +49,20 @@ class FluidSwitcher
   end
 
   def connect_to_control_keyboard
-    return if keyboard_connected_to_fluid_switcher?(CONTROL_KEYBOARD_NAME)
+    return if keyboard_connected?(CONTROL_KEYBOARD_NAME, PORTMIDI_NAME)
 
     if(keyboard_plugged_in?(CONTROL_KEYBOARD_NAME))
-      # sleep 1 # sometimes it isn't recognised right away?
       @control_keyboard_input.close if @control_keyboard_input
       control_keyboard = Portmidi.input_devices.find{ |input| input.name.include?(CONTROL_KEYBOARD_NAME) }
-
-      if(@control_keyboard_input.nil?)
-        puts "aconnect finds #{CONTROL_KEYBOARD_NAME}, but portmidi does not?"
-        puts Portmidi.input_devices.inspect
-        puts "but lets try and connect"
-        # binding.pry
-        @control_keyboard_input = Portmidi::Input.new(control_keyboard.device_id)
-        return
-      else
-        @control_keyboard_input = Portmidi::Input.new(control_keyboard.device_id)
-        puts 'connected to control keyboard'
-      end
+      @control_keyboard_input = Portmidi::Input.new(control_keyboard.device_id)
+      puts 'connected to control keyboard'  
     else
       puts 'could not find control keyboard, is it plugged in?'
     end
-    # binding.pry
   end
 
   def connect_to_sound_keyboard
-    return if keyboard_connected_to_fluidsynth?(SOUND_KEYBOARD_NAME)
+    return if keyboard_connected?(SOUND_KEYBOARD_NAME, FLUIDSYNTH_NAME)
 
     if(keyboard_plugged_in?(SOUND_KEYBOARD_NAME))
       system(ACONNECT_COMMAND)
@@ -85,7 +73,7 @@ class FluidSwitcher
   end
 
   def check_for_midi_inputs
-    return unless keyboard_connected_to_fluid_switcher?(CONTROL_KEYBOARD_NAME)
+    return unless keyboard_connected?(CONTROL_KEYBOARD_NAME, PORTMIDI_NAME)
     events = @control_keyboard_input.read(16)
     return if events.nil?
 
@@ -108,39 +96,15 @@ class FluidSwitcher
 
   def keyboard_plugged_in?(name)
     `aconnect -l | grep '#{name}'`.include?('client')
-    # aconnect_status(name).include?(fluidsynth_port)
   end
 
-  def keyboard_connected_to_fluidsynth?(name)
-    # `aconnect -l | grep -A 1 '#{name}'`.include?('Connecting')
-    # binding.pry
-    return false if aconnect_status(name).nil? || fluidsynth_port.nil?
-    aconnect_status(name).include?(fluidsynth_port)
+  def keyboard_connected?(keyboard_name, output_name)
+    return false if aconnect_status(keyboard_name).nil? || output_port(output_name).nil?
+    aconnect_status(keyboard_name).include?(output_port(output_name))
   end
 
-
-  def keyboard_connected_to_fluid_switcher?(name)
-    # binding.pry
-    return false if aconnect_status(name).nil? || fluid_switcher_port.nil?
-    aconnect_status(name).include?(fluid_switcher_port)
-  end
-
-  # def keyboard_connected(keyboard_name, output_name)
-  #   return false if aconnect_status(keyboard_name).nil? || fluid_switcher_port.nil?
-  #   aconnect_status(name).include?(fluid_switcher_port)
-  # end
-
-  # def output_port(name)
-  #   aconnect_status(name)&.split(':')&.first
-  # end
-
-
-  def fluidsynth_port
-    aconnect_status('fluidsynth')&.split(':')&.first
-  end
-
-  def fluid_switcher_port
-    aconnect_status('Client-')&.split(':')&.first
+  def output_port(name)
+    aconnect_status(name)&.split(':')&.first
   end
 
   def aconnect_status(name)
